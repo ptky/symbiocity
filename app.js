@@ -20,16 +20,30 @@
   el('index-button').onclick=()=>el('index-dialog').showModal();el('extras-button').onclick=()=>el('extras-dialog').showModal();
   document.querySelectorAll('[data-close]').forEach(button=>button.onclick=()=>button.closest('dialog').close());
   document.querySelectorAll('dialog').forEach(dialog=>dialog.addEventListener('click',event=>{if(event.target===dialog){const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)dialog.close();}}));
-  async function fullscreen(){try{if(document.fullscreenElement)await document.exitFullscreen();else if(document.documentElement.requestFullscreen)await document.documentElement.requestFullscreen();else{el('fullscreen-button').textContent='Böngésző teljes képernyő';el('fullscreen-button').title='Használd a böngésző teljes képernyős módját.';}}catch{el('fullscreen-button').textContent='Böngésző teljes képernyő';}}
+  function setPresentationMode(active){
+    document.body.classList.toggle('presentation-mode',active);
+    el('fullscreen-button').textContent=active?'Kilépés':'Teljes képernyő';
+    if(active)el('fullscreen-button').blur();
+  }
+  async function fullscreen(){
+    const active=!document.body.classList.contains('presentation-mode');
+    setPresentationMode(active);
+    try{
+      if(active&&!document.fullscreenElement&&document.documentElement.requestFullscreen)await document.documentElement.requestFullscreen();
+      else if(!active&&document.fullscreenElement)await document.exitFullscreen();
+    }catch{}
+  }
   el('fullscreen-button').onclick=fullscreen;
-  document.addEventListener('fullscreenchange',()=>el('fullscreen-button').textContent=document.fullscreenElement?'Kilépés':'Teljes képernyő');
+  document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement)setPresentationMode(false);});
   window.addEventListener('hashchange',()=>{const n=Number(location.hash.slice(1));if(Number.isInteger(n)&&n>=1&&n<=slides.length)go(n-1,false);});
   document.addEventListener('keydown',event=>{
     if(event.altKey||event.ctrlKey||event.metaKey||event.target.matches('input,textarea,select')||document.querySelector('dialog[open]'))return;
+    if(event.key==='Escape'&&document.body.classList.contains('presentation-mode')){setPresentationMode(false);if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});return;}
     if(['ArrowRight','PageDown','ArrowLeft','PageUp','Home','End',' '].includes(event.key)){
       if(event.target.closest('button,a')&&event.key===' ')return;
       event.preventDefault();
-      if(['ArrowRight','PageDown',' '].includes(event.key))go(current+1);
+      if(event.key==='Escape'&&document.body.classList.contains('presentation-mode')){setPresentationMode(false);if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});return;}
+    if(['ArrowRight','PageDown',' '].includes(event.key))go(current+1);
       else if(['ArrowLeft','PageUp'].includes(event.key))go(current-1);
       else go(event.key==='Home'?0:slides.length-1);
     }
@@ -39,7 +53,7 @@
   el('deck').addEventListener('touchstart',event=>{if(event.touches.length===1)touchStart={x:event.touches[0].clientX,y:event.touches[0].clientY};},{passive:true});
   el('deck').addEventListener('touchend',event=>{if(!touchStart)return;const t=event.changedTouches[0],dx=t.clientX-touchStart.x,dy=t.clientY-touchStart.y;if(Math.abs(dx)>80&&Math.abs(dx)>Math.abs(dy)*2)go(current+(dx<0?1:-1));touchStart=null;},{passive:true});
   const extras=el('extras-content');
-  const disclosure=document.createElement('p');disclosure.className='disclosure';disclosure.textContent='Iskolai koncepció. A képek látványtervek, nem valós budapesti állapotfelvételek. A költségvetés szemléltető becslés; a megtakarítások és a zéró emisszió tervezési célok, mérésre és részletes vizsgálatra várnak.';extras.append(disclosure);
+  const disclosure=document.createElement('p');disclosure.className='disclosure';disclosure.textContent='A város képzeletbeli. A képek új generált koncepciólátványok. A költségkeret fiktív; a megtakarítások és a zéró emisszió tervezési célok.';extras.append(disclosure);
   const stitle=document.createElement('h3');stitle.textContent='Források';extras.append(stitle);const list=document.createElement('ul');
   window.SOURCES.forEach(source=>{const li=document.createElement('li');if(source.url){const a=document.createElement('a');a.href=source.url;a.target='_blank';a.rel='noopener noreferrer';a.textContent=source.title;li.append(a);}else li.textContent=source.title;if(source.note){li.append(document.createTextNode(' — '+source.note));}list.append(li);});extras.append(list);
   const hash=Number(location.hash.slice(1));go(Number.isInteger(hash)&&hash>=1&&hash<=slides.length?hash-1:0,false);
